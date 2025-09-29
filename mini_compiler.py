@@ -19,14 +19,13 @@ def main(argv):
         """Create AST."""
         mini_ast_visitor = MiniToASTVisitor()
         mini_ast = mini_ast_visitor.visitProgram(program_ctx)
-        #print("AST created.")
-        print(mini_ast)
 
         """Pretty print AST.
         Milestone 0: Implement this visitor"""
         pp_visitor = PPASTVisitor()
-        pp_str = mini_ast.accept(pp_visitor)
-        print(pp_str)
+        pp_str = pp_visitor.pretty_print(mini_ast)
+        print(pp_str, end="")                    
+
 
 
 if __name__ == '__main__':
