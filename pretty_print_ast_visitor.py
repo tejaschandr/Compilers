@@ -50,36 +50,36 @@ class PPASTVisitor(mini_ast.ASTVisitor):
         if program.types:
             self.line("Types")
             self.indent()
-            for ty_decl in program.types:
-                ty_decl.accept(self)
+            for t in program.types:
+                t.accept(self)
             self.dedent()
 
         if program.declarations:
             self.line("Declarations")
             self.indent()
-            for decl in program.declarations:
-                decl.accept(self)
+            for d in program.declarations:
+                d.accept(self)
             self.dedent()
 
         if program.functions:
             self.line("Functions")
             self.indent()
-            for func in program.functions:
-                func.accept(self)
+            for f in program.functions:
+                f.accept(self)
             self.dedent()
 
         self.dedent()
         return self.out()
 
-    def visit_type_declaration(self, td: program_ast.TypeDeclaration):
-        self.line(f"TypeDeclaration: {self._ident_text(td.name)}")
-        if td.fields:
+    def visit_type_declaration(self, typeDeclarations: program_ast.TypeDeclaration):
+        self.line(f"TypeDeclaration: {self._ident_text(typeDeclarations.name)}")
+        if typeDeclarations.fields:
             self.indent()
             self.line("Fields")
             self.indent()
-            for field in td.fields:
-                ty = self._type_to_str(field.type)
-                self.line(f"Declaration: {ty} '{self._ident_text(field.name)}'")
+            for field in typeDeclarations.fields:
+                type = self._type_to_str(field.type)
+                self.line(f"Declaration: {type} '{self._ident_text(field.name)}'")
             self.dedent()
             self.dedent()
 
@@ -120,8 +120,8 @@ class PPASTVisitor(mini_ast.ASTVisitor):
         if f.locals:
             self.line("Locals")
             self.indent()
-            for loc in f.locals:
-                loc.accept(self)
+            for l in f.locals:
+                l.accept(self)
             self.dedent()
 
         self.line("Body")
@@ -165,10 +165,10 @@ class PPASTVisitor(mini_ast.ASTVisitor):
         self.indent()
         self.line("Guard")
         self.indent(); s.guard.accept(self); self.dedent()
-        self.line("ThenBlock")
+        self.line("Then Block")
         self.indent(); s.then_block.accept(self); self.dedent()
         if s.else_block is not None:
-            self.line("ElseBlock")
+            self.line("Else Block")
             self.indent(); s.else_block.accept(self); self.dedent()
         self.dedent()
 
@@ -253,7 +253,7 @@ class PPASTVisitor(mini_ast.ASTVisitor):
         self.dedent()
 
     def visit_dot_expression(self, e: expression_ast.DotExpression):
-        self.line("DotExpression")
+        self.line("Dot Expression")
         self.indent()
         self.line("Left")
         self.indent(); e.left.accept(self); self.dedent()
@@ -261,7 +261,7 @@ class PPASTVisitor(mini_ast.ASTVisitor):
         self.dedent()
 
     def visit_lvalue_dot(self, v: lvalue_ast.LValueDot):
-        self.line("LValue (LvalueDot)")
+        self.line("LValue (LValueDot)")
         self.indent()
         self.line("Base")
         self.indent(); v.left.accept(self); self.dedent()
@@ -269,4 +269,4 @@ class PPASTVisitor(mini_ast.ASTVisitor):
         self.dedent()
 
     def visit_lvalue_id(self, v: lvalue_ast.LValueID):
-        self.line(f"LValue (LvalueId): {self._ident_text(v.id)}")
+        self.line(f"LValue (LValueId): {self._ident_text(v.id)}")

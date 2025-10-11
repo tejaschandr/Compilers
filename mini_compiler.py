@@ -4,6 +4,7 @@ from MiniLexer import MiniLexer
 from MiniParser import MiniParser
 from mini_ast_visitor import MiniToASTVisitor
 from pretty_print_ast_visitor import PPASTVisitor
+from static_semantic_ast_visitor import StaticSemanticASTVisitor
 
 def main(argv):
     input_stream = FileStream(argv[1])  # create a stream of characters from the input file (e.g., test.mini)
@@ -22,11 +23,13 @@ def main(argv):
 
         """Pretty print AST.
         Milestone 0: Implement this visitor"""
-        pp_visitor = PPASTVisitor()
-        pp_str = pp_visitor.pretty_print(mini_ast)
-        print(pp_str, end="")                    
+        #pp_visitor = PPASTVisitor()
+        #pp_str = pp_visitor.pretty_print(mini_ast)
+        #print(pp_str, end="")   
 
-
+        "Milestone 1"
+        visitor = StaticSemanticASTVisitor()
+        errors = visitor.analyze(mini_ast)                 
 
 if __name__ == '__main__':
     main(sys.argv)
