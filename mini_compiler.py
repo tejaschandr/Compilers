@@ -5,33 +5,40 @@ from MiniParser import MiniParser
 from mini_ast_visitor import MiniToASTVisitor
 from pretty_print_ast_visitor import PPASTVisitor
 from static_semantic_ast_visitor import StaticSemanticASTVisitor
+import argparse
 
 def main(argv):
-    input_stream = FileStream(argv[1])  # create a stream of characters from the input file (e.g., test.mini)
-    lexer = MiniLexer(input_stream)     # create a lexer for the input stream
-    stream = CommonTokenStream(lexer)   
-    parser = MiniParser(stream)         # create a parser for the stream of tokens
-    program_ctx = parser.program()      # recursively parse, starting with the top-level 'program' construct of Mini.g4
+    parser = argparse.ArgumentParser(description='Mini compiler')
+    parser.add_argument('input_file', help='Input .mini file')
+    parser.add_argument('-p', '--prettyprint', action='store_true', 
+                        help='Pretty print the AST')
+    parser.add_argument('-s', '--symbols', action='store_true',
+                        help='Print symbol tables (for debugging)')
+    
+    args = parser.parse_args(argv[1:])
+    
+    input_stream = FileStream(args.input_file)
+    lexer = MiniLexer(input_stream)
+    stream = CommonTokenStream(lexer)
+    parser = MiniParser(stream)
+    program_ctx = parser.program()
 
     if parser.getNumberOfSyntaxErrors() > 0:
         print("Syntax errors.")
-    else:
-        print("Parse successful.")
-        """Create AST."""
-        mini_ast_visitor = MiniToASTVisitor()
-        mini_ast = mini_ast_visitor.visitProgram(program_ctx)
+        return
+    
+    print("Parse successful.")
+    
+    mini_ast_visitor = MiniToASTVisitor()
+    mini_ast = mini_ast_visitor.visitProgram(program_ctx)
 
-        """Pretty print AST.
-        Milestone 0: Implement this visitor"""
-        #pp_visitor = PPASTVisitor()
-        #pp_str = pp_visitor.pretty_print(mini_ast)
-        #print(pp_str, end="")   
+    if args.prettyprint:
+        pp_visitor = PPASTVisitor()
+        pp_str = pp_visitor.pretty_print(mini_ast)
+        print(pp_str, end="")
 
-        "Milestone 1"
-        visitor = StaticSemanticASTVisitor()
-        errors = visitor.analyze(mini_ast)                 
+    visitor = StaticSemanticASTVisitor()
+    errors = visitor.analyze(mini_ast)
 
 if __name__ == '__main__':
     main(sys.argv)
-
-

@@ -1,0 +1,6 @@
+/modified2.mini
+*.md
+__pycache__/
+*.py[cod]
+tests/
+.DS_Store
