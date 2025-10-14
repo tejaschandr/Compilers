@@ -2,17 +2,21 @@ from miniast import mini_ast, program_ast, type_ast, statement_ast, expression_a
 from typing import Dict, List, Optional, Any
 
 class SymbolTable:
+    # Simple scoped symbol table that supports nested scopes
     def __init__(self, parent=None):
+        # creates symbols and stores parent nodes
         self.symbols: Dict[str, Any] = {}
         self.parent = parent
     
     def insert(self, name: str, info: Any) -> bool:
+        #inserts info for name into the current scope, return false if name exists locally
         if name in self.symbols:
             return False
         self.symbols[name] = info
         return True
     
     def lookup(self, name: str) -> Optional[Any]:
+        #Recursive lookup, returns symbol from current scope, or asks parent
         if name in self.symbols:
             return self.symbols[name]
         if self.parent:
@@ -20,19 +24,24 @@ class SymbolTable:
         return None
     
     def lookup_local(self, name: str) -> Optional[Any]:
+        #only returns symbol from current scope
         return self.symbols.get(name)
 
 
 class TypeInfo:
+    #Thin wrapper around AST type objects used for runtime equality and comparison
     def __init__(self, type_obj):
+        #store type object
         self.type_obj = type_obj
     
     def __eq__(self, other):
+        #compares two TypeInfo instances
         if not isinstance(other, TypeInfo):
             return False
         return self.compare_types(self.type_obj, other.type_obj)
     
     @staticmethod
+    # static compare method
     def compare_types(t1, t2) -> bool:
         if isinstance(t1, type_ast.IntType) and isinstance(t2, type_ast.IntType):
             return True
@@ -43,7 +52,7 @@ class TypeInfo:
         if isinstance(t1, type_ast.ReturnTypeVoid) and isinstance(t2, type_ast.ReturnTypeVoid):
             return True
         return False
-
+#Data containers used as entires stored in the symbol table
 
 class FunctionInfo:
     def __init__(self, name: str, return_type, params: List[program_ast.Declaration], linenum: int):
@@ -69,14 +78,15 @@ class StructInfo:
 
 class StaticSemanticASTVisitor(mini_ast.ASTVisitor):
     def __init__(self):
-        self.errors: List[str] = []
-        self.global_scope = SymbolTable()
+        self.errors: List[str] = [] # collects error messages
+        self.global_scope = SymbolTable() # symbol table, swithces to current scope when entering functions
         self.current_scope = self.global_scope
-        self.struct_table: Dict[str, StructInfo] = {}
-        self.current_function: Optional[FunctionInfo] = None
-        self.has_main = False
+        self.struct_table: Dict[str, StructInfo] = {} # registry of struct delcarations
+        self.current_function: Optional[FunctionInfo] = None # used for checks inside functions
+        self.has_main = False # flag to check if main function is present
     
     def analyze(self, program: program_ast.Program) -> int:
+        # entry point for analysis, calls accept on the program node
         program.accept(self)
         for error in self.errors:
             print(error)
@@ -99,6 +109,13 @@ class StaticSemanticASTVisitor(mini_ast.ASTVisitor):
             return "unknown"
     
     def visit_program(self, program: program_ast.Program):
+        # First pass: register struct types. If struct name is duplicates, require error
+        # Second pass: call visit_type_declaration for each typ eto validate fields and populate StructInfo
+        # Third pass: process top level variable declarations
+        # Fourth pass: declare funcitons into the global scope
+        # Fifth pass: call accept(self) for each function
+        # If no main found, add error
+        # Functions are first insereted into the global scope
         for type_decl in program.types:
             struct_name = type_decl.name.id
             if struct_name in self.struct_table:
@@ -134,6 +151,9 @@ class StaticSemanticASTVisitor(mini_ast.ASTVisitor):
             self.add_error("Program must have a main() function", 1)
     
     def visit_type_declaration(self, type_decl: program_ast.TypeDeclaration):
+        # For a struct type declaration, populate its fields in the struct table
+        # If a field name is duplicate, add error
+        # Stores the built strucutre into corresponding StructInfo in struct_table
         struct_name = type_decl.name.id
         struct_info = self.struct_table[struct_name]
         
@@ -148,6 +168,9 @@ class StaticSemanticASTVisitor(mini_ast.ASTVisitor):
         struct_info.fields = field_dict
     
     def visit_declaration(self, decl: program_ast.Declaration):
+        # Handles top-level and local variable declarations
+        # If variable name is duplicate in current scope, add error
+        # Inserts variable into current scope
         var_name = decl.name.id
         
         if self.current_scope.lookup_local(var_name):
@@ -158,6 +181,13 @@ class StaticSemanticASTVisitor(mini_ast.ASTVisitor):
         self.current_scope.insert(var_name, var_info)
     
     def visit_function(self, func: program_ast.Function):
+        # Sets up a fresh scope for the function
+        # Retreives the function info from the global scope
+        # Processes parameters, checking for duplicates and inserting into current scope
+        # Processes local variable declarations, checking for duplicates with parameters and inserting into current scope
+        # Processes each statement in the function body
+        # Restores the current scope to global scope after processing
+        # Resets current function to None
         func_name = func.name.id
         
         self.current_scope = SymbolTable(self.global_scope)
@@ -202,6 +232,8 @@ class StaticSemanticASTVisitor(mini_ast.ASTVisitor):
         return TypeInfo(return_type_void)
     
     def visit_assignment_statement(self, stmt: statement_ast.AssignmentStatement):
+        #Gets target and source types
+        # If either is None, skip further checks
         target_type = stmt.target.accept(self)
         source_type = stmt.source.accept(self)
         
@@ -216,10 +248,12 @@ class StaticSemanticASTVisitor(mini_ast.ASTVisitor):
                 )
     
     def visit_block_statement(self, stmt: statement_ast.BlockStatement):
+
         for s in stmt.statements:
             s.accept(self)
     
     def visit_conditional_statement(self, stmt: statement_ast.ConditionalStatement):
+        # Both requrie the guard to be boolean
         guard_type = stmt.guard.accept(self)
         if guard_type and not isinstance(guard_type.type_obj, type_ast.BoolType):
             self.add_error("if statement guard must be boolean", stmt.linenum)
@@ -230,7 +264,7 @@ class StaticSemanticASTVisitor(mini_ast.ASTVisitor):
     
     def visit_while_statement(self, stmt: statement_ast.WhileStatement):
         guard_type = stmt.guard.accept(self)
-        if guard_type and not isinstance(guard_type.type_obj, type_ast.BoolType):
+        if not guard_type or not isinstance(guard_type.type_obj, type_ast.BoolType):
             self.add_error("while statement guard must be boolean", stmt.linenum)
         
         stmt.body.accept(self)
@@ -241,6 +275,7 @@ class StaticSemanticASTVisitor(mini_ast.ASTVisitor):
             self.add_error("delete requires a struct type", stmt.linenum)
     
     def visit_invocation_statement(self, stmt: statement_ast.InvocationStatement):
+        # Looks up function in global scope, checks arity, verifies function existence
         stmt.expression.accept(self)
     
     def visit_println_statement(self, stmt: statement_ast.PrintLnStatement):
@@ -346,6 +381,9 @@ class StaticSemanticASTVisitor(mini_ast.ASTVisitor):
         return TypeInfo(type_ast.IntType())
     
     def visit_invocation_expression(self, expr: expression_ast.InvocationExpression):
+        # Lookup function by name in global scope
+        # Check arugment count equals parameter count
+
         func_name = expr.name.id
         func_info = self.global_scope.lookup(func_name)
         
@@ -362,7 +400,8 @@ class StaticSemanticASTVisitor(mini_ast.ASTVisitor):
                 f"Function '{func_name}' expects {len(func_info.params)} arguments, got {len(expr.arguments)}",
                 expr.linenum
             )
-            
+            return TypeInfo(func_info.return_type)
+        
         for i, (arg, param) in enumerate(zip(expr.arguments, func_info.params)):
             arg_type = arg.accept(self)
             param_type = TypeInfo(param.type)
@@ -403,7 +442,7 @@ class StaticSemanticASTVisitor(mini_ast.ASTVisitor):
         op = expr.operator
         
         if op in [expression_ast.Operator.TIMES, expression_ast.Operator.DIVIDE,
-                  expression_ast.Operator.PLUS, expression_ast.Operator.MINUS]:
+                expression_ast.Operator.PLUS, expression_ast.Operator.MINUS]:
             left_ok = isinstance(left_type.type_obj, type_ast.IntType)
             right_ok = isinstance(right_type.type_obj, type_ast.IntType)
             if not (left_ok and right_ok):
@@ -416,6 +455,7 @@ class StaticSemanticASTVisitor(mini_ast.ASTVisitor):
             right_ok = isinstance(right_type.type_obj, type_ast.IntType)
             if not (left_ok and right_ok):
                 self.add_error(f"Operator {op.value} requires int operands", expr.linenum)
+                return None 
             return TypeInfo(type_ast.BoolType())
         
         elif op in [expression_ast.Operator.EQ, expression_ast.Operator.NE]:
