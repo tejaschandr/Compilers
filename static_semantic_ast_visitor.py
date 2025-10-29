@@ -305,7 +305,14 @@ class StaticSemanticASTVisitor(mini_ast.ASTVisitor):
                 )
             else:
                 expected_type = TypeInfo(self.current_function.return_type)
-                if not expr_type == expected_type:
+                # Allow null to be returned for struct types
+                if isinstance(stmt.expression, expression_ast.NullExpression):
+                    if not isinstance(self.current_function.return_type, type_ast.StructType):
+                        self.add_error(
+                            f"Cannot return null for non-struct type {self.get_type_string(self.current_function.return_type)}",
+                            stmt.linenum
+                        )
+                elif not expr_type == expected_type:
                     self.add_error(
                         f"Return type mismatch: expected {self.get_type_string(self.current_function.return_type)}, got {self.get_type_string(expr_type.type_obj)}",
                         stmt.linenum
