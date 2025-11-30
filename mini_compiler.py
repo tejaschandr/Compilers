@@ -5,6 +5,7 @@ from MiniParser import MiniParser
 from mini_ast_visitor import MiniToASTVisitor
 from pretty_print_ast_visitor import PPASTVisitor
 from static_semantic_ast_visitor import StaticSemanticASTVisitor
+from codegen_visitor import CodeGenVisitor
 import argparse
 
 def main(argv):
@@ -39,6 +40,17 @@ def main(argv):
 
     visitor = StaticSemanticASTVisitor()
     errors = visitor.analyze(mini_ast)
+
+    if errors == 0:
+        codegen = CodeGenVisitor()
+        assembly = codegen.visit_program(mini_ast)
+
+        assembly_output = args.input_file.replace('.mini', '.s')
+        
+        with open(assembly_output, 'w') as f:
+            f.write(assembly)
+
+        print(f"Assembly code generated in {assembly_output}")
 
 if __name__ == '__main__':
     main(sys.argv)
